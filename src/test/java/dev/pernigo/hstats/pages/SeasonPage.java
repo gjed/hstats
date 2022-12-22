@@ -6,6 +6,7 @@ import org.openqa.selenium.*;
 import org.openqa.selenium.support.FindBy;
 import org.openqa.selenium.support.PageFactory;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import dev.pernigo.hstats.SampleJUnitTest;
 
 /**
  * Sample page
@@ -52,7 +53,7 @@ public class SeasonPage extends Page {
   {
     wait.until(ExpectedConditions.elementToBeClickable(championship));
     championship.click();
-    Thread.sleep(1000);
+    Thread.sleep(SampleJUnitTest.LAG);
     return PageFactory.initElements(driver, ChampionshipPage.class);
   }
 

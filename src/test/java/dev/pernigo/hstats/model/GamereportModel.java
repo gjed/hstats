@@ -43,6 +43,7 @@ public class GamereportModel
   private Collection<GameeventPenalty> fouls;
   private Collection<GameeventTimeout> timeouts;
   private Collection<GameeventGoalieChange> goalieChanges;
+  private Collection<GamestatModel> stats;
 
   /**
    * @param championship2
@@ -91,6 +92,16 @@ public class GamereportModel
       goalieChanges = new ArrayList<>();
     }
     goalieChanges.add(gce);
+  }
+
+
+  public void addStat(GamestatModel stat)
+  {
+    if (stats == null)
+    {
+      stats = new ArrayList<>();
+    }
+    stats.add(stat);
   }
 
 
@@ -424,6 +435,30 @@ public class GamereportModel
   public void setTeamAwayScore(String teamAwayScore)
   {
     this.teamAwayScore = teamAwayScore;
+  }
+
+
+  /**
+   * @param teamName
+   * @return
+   */
+  public String getTeamId(String teamName)
+  {
+    String id = null;
+    if (teamName.equals(teamHomeName))
+    {
+      id = teamHomeId;
+    }
+    else if (teamName.equals(teamAwayName))
+    {
+      id = teamAwayId;
+    }
+    else
+    {
+      throw new IllegalArgumentException("Unexpected value: " + teamName + " is not a team of this game (" + label + ")");
+    }
+
+    return id;
   }
 
 }

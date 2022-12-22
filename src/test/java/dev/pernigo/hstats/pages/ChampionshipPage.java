@@ -5,6 +5,7 @@ import org.openqa.selenium.*;
 import org.openqa.selenium.support.FindBy;
 import org.openqa.selenium.support.PageFactory;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import dev.pernigo.hstats.SampleJUnitTest;
 
 /**
  * Sample page
@@ -32,7 +33,7 @@ public class ChampionshipPage extends Page {
   {
     wait.until(ExpectedConditions.elementToBeClickable(backToSeasonLink));
     backToSeasonLink.click();
-    Thread.sleep(1000);
+    Thread.sleep(SampleJUnitTest.LAG);
     return PageFactory.initElements(driver, SeasonPage.class);
   }
 
@@ -44,7 +45,7 @@ public class ChampionshipPage extends Page {
     WebElement gmLink = gamereportElem.findElement(By.xpath("td/i[contains(@class, 'game_report')]"));
     wait.until(ExpectedConditions.elementToBeClickable(gmLink));
     gmLink.click();
-    Thread.sleep(1000);
+    Thread.sleep(SampleJUnitTest.LAG);
     wait.until(ExpectedConditions.elementToBeClickable(By.xpath(GamereportPage.XP2LOAD)));
     return PageFactory.initElements(driver, GamereportPage.class);
   }

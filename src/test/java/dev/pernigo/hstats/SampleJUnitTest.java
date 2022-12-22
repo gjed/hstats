@@ -21,6 +21,7 @@ import dev.pernigo.hstats.pages.SeasonPage;
 
 public class SampleJUnitTest extends JUnitTestBase
 {
+  public static final long LAG = 500;
   private static final Logger logger = LoggerFactory.getLogger(SampleJUnitTest.class);
   private SeasonPage seasonpage;
   private ChampionshipPage championshipage;
@@ -52,16 +53,14 @@ public class SampleJUnitTest extends JUnitTestBase
           GamereportModel gamereport = GamereportFactory.getGamereport(championship, gamereportElement);
           gamereportpage = championshipage.navigateToGamereport(gamereportElement);
           GamereportFactory.processGameReport(gamereportpage, gamereport);
-//          GamereportFactory.extractGameData(gamereportpage.getGameDataElement(), gamereport);
-//          GamereportFactory.extractGameEvents(
-//              gamereportpage.getGameEventElements(),
-//              gamereport);
+          championship.addGamereport(gamereport);
           logger.info("Scraping game {} - {} - {} - {} {}-{} {}",
               season.getCode(), championship.getHtmlName(), gamereport.getLabel(),
               gamereport.getTeamHomeName(), gamereport.getTeamHomeScore(),
               gamereport.getTeamAwayScore(), gamereport.getTeamAwayName());
           championshipage = gamereportpage.navigateBackToChampionship();
         }
+        season.addChampionship(championship);
         seasonpage = championshipage.navigateBackToSeason();
       }
     }

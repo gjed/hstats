@@ -18,7 +18,6 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.w3c.dom.Node;
 import dev.pernigo.hstats.model.*;
 import dev.pernigo.hstats.pages.GamereportPage;
 
@@ -43,6 +42,7 @@ public class GamereportFactory
   /*
    * Generate a {@link GamereportModel} from the given WebElement. With some Jsoup
    */
+  @Deprecated
   public static GamereportModel getGamereport(ChampionshipModel championship, String externalHTML, WebElement we) throws Exception
   {
     if (gamereports == null)
@@ -159,88 +159,229 @@ public class GamereportFactory
     return gm;
   }
 
-
-  /*
-   * Extract the game data from the webElement
-   * @return the same gamereport instance
+  /**
+   * @param gee
+   * @param te
    */
-  public static GamereportModel extractGameData(WebElement we, GamereportModel gm)
+  private static void createEvent(Element ee, GameeventModel e)
   {
-    List<WebElement> tables = we.findElements(By.xpath("table"));
-    List<WebElement> tab1Data = tables.get(0).findElements(By.tagName("td"));
-    List<WebElement> tab2Data = tables.get(1).findElements(By.tagName("td"));
-
-    String label = tab1Data.get(0).getText().replace("\n", " ");
-    Matcher matchDate = datePattern.matcher(label);
-    String date = matchDate.find() ? matchDate.group() : "";
-    Matcher matchTime = timePattern.matcher(label);
-    String starttime = matchTime.find() ? matchTime.group() : "";
-    String location = tab1Data.get(1).getText();
-    Matcher refMatcher = refPattern.matcher(tab1Data.get(2).getText());
-    List<String> refs = new ArrayList<>();
-    while (refMatcher.find())
-    {
-      refs.add(refMatcher.group());
-    }
-    gm.setLabel(label);
-    gm.setDate(date);
-    gm.setStarttime(starttime);
-    gm.setLocation(location);
-    gm.setReferees(refs);
-
-    gm.setTeamHomeName(tab2Data.get(0).getText());
-    gm.setTeamHomeLogoUrl(tab2Data.get(1).findElement(By.tagName("img")).getAttribute("src"));
-    gm.setTeamHomeScore(tab2Data.get(2).findElement(By.id("home_score")).getText());
-    gm.setTeamAwayName(tab2Data.get(4).getText());
-    gm.setTeamAwayLogoUrl(tab2Data.get(3).findElement(By.tagName("img")).getAttribute("src"));
-    gm.setTeamAwayScore(tab2Data.get(2).findElement(By.id("away_score")).getText());
-    return gm;
+    e.setPeriod(ee.selectFirst("td > div[class='game_view_indcidencias_period']").text());
+    e.setTime(ee.selectFirst("td > div[class='game_view_incidencias_time']").text());
+    e.setTeamId(ee.selectFirst("td > a[class='nombre_ficha_jugador_plus link_ficha_player_game']").attr("team_id"));
   }
 
 
   /**
-   * @param gameEventElements
+   * @param ee
    * @param gamereport
    */
-  public static void extractGameEvents(List<WebElement> gameEventElements, GamereportModel gamereport)
+  private static void createTimeoutEvent(Element ee, GamereportModel gamereport)
   {
+    GameeventTimeout te = new GameeventTimeout(gamereport);
+    createEvent(ee, te);
+    gamereport.addEvent(te);
+  }
 
-    for (WebElement gee : gameEventElements)
+
+  /**
+   * @param ee
+   * @param gamereport
+   */
+  private static void createGoalieChangeEvent(Element ee, GamereportModel gamereport)
+  {
+    GameeventGoalieChange gce = new GameeventGoalieChange(gamereport);
+    createEvent(ee, gce);
+
+    List<Element> goalies = ee.select("a[class*='nombre_ficha_jugador_plus']");
+    gce.setTeamId(goalies.get(0).attr("team_id"));
+    gce.setGoalieInName(goalies.get(0).attr("player_name").replace(",", "").toUpperCase());
+    gce.setGoalieOutName(goalies.get(1).attr("player_name").replace(",", "").toUpperCase());
+
+    gamereport.addEvent(gce);
+  }
+
+
+  /**
+   * @param ee
+   * @param gamereport
+   */
+  private static void createPenaltyEvent(Element ee, GamereportModel gamereport)
+  {
+    GameeventPenalty pe = new GameeventPenalty(gamereport);
+    createEvent(ee, pe);
+
+    pe.setPlayerNumber(ee.selectFirst("td > div[class='game_view_incidencias_dorsal']").text());
+    pe.setPlayerName(ee.selectFirst("td > a[class='nombre_ficha_jugador_plus link_ficha_player_game']").attr("player_name").replace(",", "").toUpperCase());
+    pe.setMinutes(ee.selectFirst("td > div[class='game_view_incidencias_min_sancion']").text().replace("'", ""));
+    pe.setType(ee.selectFirst("td > br > span[class='texto_gris_11']").text().toUpperCase());
+
+    gamereport.addEvent(pe);
+  }
+
+
+  /**
+   * @param ee
+   * @param gamereport
+   */
+  private static void createGoalEvent(Element ee, GamereportModel gamereport)
+  {
+    GameeventGoal ge = new GameeventGoal(gamereport);
+    createEvent(ee, ge);
+
+    ge.setPlayerGoalNumber(ee.selectFirst("td > div[class='game_view_incidencias_dorsal']").text());
+    ge.setPlayerGoalName(ee.selectFirst("td > a[class='nombre_ficha_jugador_plus link_ficha_player_game']").attr("player_name").replace(",", "").toUpperCase());
+
+
+    Element assistElem = ee.selectFirst("td > div > a[class='nombre_ficha_jugador_plus']");
+    if (assistElem != null)
     {
-      String eventType = gee.findElement(By.xpath("td/div[contains(@class, 'evento')]")).getText().toLowerCase();
-      if (eventType.startsWith("gol") || eventType.startsWith("goal"))
-      {
-        createGoalEvent(gee, gamereport);
-      }
-      else if (eventType.startsWith("penalty") || eventType.startsWith("falta") || eventType.startsWith("falli"))
-      {
-        createPenaltyEvent(gee, gamereport);
-      }
-      else if (eventType.startsWith("timeout") || eventType.startsWith("tiempo muerto"))
-      {
-        createTimeoutEvent(gee, gamereport);
-      }
-      else if (eventType.startsWith("cambio de portero") || eventType.startsWith("goalkeeper change") || eventType.startsWith("sostituzione portiere"))
-      {
-        createGoalieChangeEvent(gee, gamereport);
-      }
-      else
-      {
-        throw new IllegalArgumentException("Unexpected value: " + gee.findElement(By.xpath("child::span[@class='lang_label lang_en']")).getText());
-      }
+      ge.setPlayerAssistName(assistElem.attr("player_name").replace(",", "").toUpperCase());
+      ge.setPlayerAssistNumber(ee.selectFirst("td > div > a[class='nombre_ficha_jugador_plus'] + span").text().replace("#", ""));
     }
 
+    ge.setPartialScore(ee.selectFirst("td > div[class='game_view_incidencias_result']").text());
+    ge.setIsEmptyNet(ee.text().contains("EMPTY NET") ? "true" : "false");
+
+    gamereport.addEvent(ge);
   }
 
   public static void processGameReport(GamereportPage gamereportPage, GamereportModel gamereport)
   {
     Document gameHeaderFrg = gamereportPage.getGameHeaderHtml();
+    Document gameEventsFrg = gamereportPage.getGameEventsHtml();
+    List<Document> gameStatsFrg = gamereportPage.getGameStatsHtml();
+
+    processGameHeader(gamereport, gameHeaderFrg);
+    processGameEvents(gamereport, gameEventsFrg);
+    processGameStats(gamereport, gameStatsFrg);
+
+  }
+
+
+  /**
+   * @param gamereport
+   * @param gameStatsFrg
+   */
+  private static void processGameStats(GamereportModel gamereport, List<Document> gameStatsFrg)
+  {
+    for (Document stats : gameStatsFrg)
+    {
+      String teamName = stats.selectFirst(".nombre_equipo_thickbox_stats").text();
+      String teamId = gamereport.getTeamId(teamName);
+      List<Element> statBlocks = stats.select("tbody");
+
+      List<Element> statPlayerRows = statBlocks.get(0).select("tr");
+      List<Element> statGoalieRows = statBlocks.get(1).select("tr");
+      for (Element row : statPlayerRows)
+      {
+        List<Element> data = row.select("td");
+        GamestatModel stat = new GamestatModel(gamereport ,teamId, teamName);
+
+        String playerNumber = data.get(0).text();
+        String playerRole = data.get(1).text();
+        String playerName = data.get(3).text().toUpperCase();
+        String pt = data.get(4).text();
+        String g = data.get(5).text();
+        String a = data.get(6).text();
+        String pim = data.get(7).text();
+        String fo = data.get(8).text();
+        String plusMinus = data.get(9).text();
+
+        stat.setPlayerNumber(playerNumber);
+        stat.setPlayerRole(playerRole);
+        stat.setPlayerName(playerName);
+        stat.setPt(pt);
+        stat.setG(g);
+        stat.setA(a);
+        stat.setPim(pim);
+        stat.setFo(fo);
+        stat.setPlusMinus(plusMinus);
+        gamereport.addStat(stat);
+      }
+
+      for (Element row : statGoalieRows)
+      {
+        List<Element> data = row.select("td");
+        GamestatModel stat = new GamestatModel(gamereport ,teamId, teamName);
+
+        String playerNumber = data.get(0).text();
+        String playerRole = data.get(1).text();
+        String playerName = data.get(3).text().toUpperCase();
+        String ge = data.get(4).text();
+        String sh = data.get(5).text();
+        String sPerc = data.get(6).text();
+        String pim = data.get(7).text();
+        String min = data.get(8).text();
+        String plusMinus = data.get(9).text();
+
+        stat.setPlayerNumber(playerNumber);
+        stat.setPlayerRole(playerRole);
+        stat.setPlayerName(playerName);
+        stat.setGe(ge);
+        stat.setSh(sh);
+        stat.setsPerc(sPerc);
+        stat.setPim(pim);
+        stat.setMin(min);
+        stat.setPlusMinus(plusMinus);
+        gamereport.addStat(stat);
+      }
+
+    }
+
+
+  }
+
+
+  /**
+   * @param gamereport
+   * @param gameEventsFrg
+   */
+  private static void processGameEvents(GamereportModel gamereport, Document gameEventsFrg)
+  {
+    //process event list
+    List<Element> eventElements = gameEventsFrg.select("table > tbody > tr");
+    for (Element ee : eventElements)
+    {
+      String eventType = ee
+          .selectFirst("td > div[class*='evento']")
+          .text()
+          .toLowerCase();
+      if (eventType.startsWith("gol") || eventType.startsWith("goal"))
+      {
+        createGoalEvent(ee, gamereport);
+      }
+      else if (eventType.startsWith("penalty") || eventType.startsWith("falta") || eventType.startsWith("falli"))
+      {
+        createPenaltyEvent(ee, gamereport);
+      }
+      else if (eventType.startsWith("timeout") || eventType.startsWith("tiempo muerto"))
+      {
+        createTimeoutEvent(ee, gamereport);
+      }
+      else if (eventType.startsWith("cambio de portero") || eventType.startsWith("goalkeeper change") || eventType.startsWith("sostituzione portiere"))
+      {
+        createGoalieChangeEvent(ee, gamereport);
+      }
+      else
+      {
+        throw new IllegalArgumentException("Unexpected value: " + ee.selectFirst("span[class='lang_label lang_en']").text());
+      }
+    }
+  }
+
+
+  /**
+   * @param gamereport
+   * @param gameHeaderFrg
+   */
+  private static void processGameHeader(GamereportModel gamereport, Document gameHeaderFrg)
+  {
+    // Process game header
     List<Element> gameHeaderTabs = gameHeaderFrg.select("table");
     List<Element> headerTab1data = gameHeaderTabs.get(0).select("td");
     List<Element> headerTab2data = gameHeaderTabs.get(1).select("td");
-    Document gameEventsFrg = gamereportPage.getGameEventsHtml();
 
-    String label = headerTab1data.get(0).text().replace("\n", " ");
+    String label = headerTab1data.get(0).text().replace("\n", " ").replace("JORNADA ", "");
     Matcher matchDate = datePattern.matcher(label);
     String date = matchDate.find() ? matchDate.group() : "";
     Matcher matchTime = timePattern.matcher(label);
@@ -250,7 +391,7 @@ public class GamereportFactory
     List<String> refs = new ArrayList<>();
     while (refMatcher.find())
     {
-      refs.add(refMatcher.group());
+      refs.add(refMatcher.group().replace(",", "").toUpperCase());
     }
     gamereport.setLabel(label);
     gamereport.setDate(date);
@@ -258,102 +399,17 @@ public class GamereportFactory
     gamereport.setLocation(location);
     gamereport.setReferees(refs);
 
-    gamereport.setTeamHomeName(headerTab2data.get(0).text());
+    gamereport.setTeamHomeName(headerTab2data.get(0).text().toUpperCase());
     gamereport.setTeamHomeLogoUrl(headerTab2data.get(1).select("img").get(0).attr("src"));
     gamereport.setTeamHomeScore(headerTab2data.get(2).select("#home_score").text());
-    gamereport.setTeamAwayName(headerTab2data.get(4).text());
-    gamereport.setTeamAwayLogoUrl(headerTab2data.get(3).select("img").attr("src"));
+    gamereport.setTeamAwayName(headerTab2data.get(4).text().toUpperCase());
     gamereport.setTeamAwayScore(headerTab2data.get(2).select("#away_score").text());
-
-
+    gamereport.setTeamAwayLogoUrl(headerTab2data.get(3).select("img").attr("src"));
   }
 
 
-  /**
-   * @param gee
-   * @param te
-   */
-  private static void createEvent(WebElement we, GameeventModel e)
-  {
-    e.setPeriod(we.findElement(By.xpath("td/div[@class='game_view_indcidencias_period']")).getText());
-    e.setTime(we.findElement(By.xpath("td/div[@class='game_view_incidencias_time']")).getText());
-    e.setTeamId(we.findElement(By.xpath("td/a[@class='nombre_ficha_jugador_plus link_ficha_player_game']")).getAttribute("team_id"));
-  }
 
 
-  /**
-   * @param gee
-   * @param gamereport
-   */
-  private static void createTimeoutEvent(WebElement gee, GamereportModel gamereport)
-  {
-    GameeventTimeout te = new GameeventTimeout(gamereport);
-    createEvent(gee, te);
-    gamereport.addEvent(te);
-  }
-
-
-  /**
-   * @param gee
-   * @param gamereport
-   */
-  private static void createGoalieChangeEvent(WebElement gee, GamereportModel gamereport)
-  {
-    GameeventGoalieChange gce = new GameeventGoalieChange(gamereport);
-    createEvent(gee, gce);
-
-    List<WebElement> goalies = gee.findElements(By.xpath("child::a[contains(@class, 'nombre_ficha_jugador_plus')]"));
-    gce.setTeamId(goalies.get(0).getAttribute("team_id"));
-    gce.setGoalieInName(goalies.get(0).getAttribute("player_name").replace(",", ""));
-    gce.setGoalieOutName(goalies.get(1).getAttribute("player_name").replace(",", ""));
-
-    gamereport.addEvent(gce);
-  }
-
-
-  /**
-   * @param gee
-   * @param gamereport
-   */
-  private static void createPenaltyEvent(WebElement gee, GamereportModel gamereport)
-  {
-    GameeventPenalty pe = new GameeventPenalty(gamereport);
-    createEvent(gee, pe);
-
-    pe.setPlayerNumber(gee.findElement(By.xpath("td/div[@class='game_view_incidencias_dorsal']")).getText());
-    pe.setPlayerName(gee.findElement(By.xpath("td/a[@class='nombre_ficha_jugador_plus link_ficha_player_game']")).getAttribute("player_name").replace(",", ""));
-    pe.setMinutes(gee.findElement(By.xpath("td/div[@class='game_view_incidencias_min_sancion']")).getText().replace("'", ""));
-    pe.setType(gee.findElement(By.xpath("td/span[@class='texto_gris_11']")).getText());
-
-    gamereport.addEvent(pe);
-  }
-
-
-  /**
-   * @param gee
-   * @param gamereport
-   */
-  private static void createGoalEvent(WebElement gee, GamereportModel gamereport)
-  {
-    GameeventGoal ge = new GameeventGoal(gamereport);
-    createEvent(gee, ge);
-
-    ge.setPlayerGoalNumber(gee.findElement(By.xpath("td/div[@class='game_view_incidencias_dorsal']")).getText());
-    ge.setPlayerGoalName(gee.findElement(By.xpath("td/a[@class='nombre_ficha_jugador_plus link_ficha_player_game']")).getAttribute("player_name").replace(",", ""));
-
-
-    List<WebElement> assistElem = gee.findElements(By.xpath("td/div/a[@class='nombre_ficha_jugador_plus']"));
-    if (assistElem.size() > 1)
-    {
-      ge.setPlayerAssistName(assistElem.get(0).getAttribute("player_name").replace(",", ""));
-      ge.setPlayerAssistNumber(gee.findElements(By.xpath("td/div[a[@class='nombre_ficha_jugador_plus']]")).get(0).getText().split("#")[1]);
-    }
-
-    ge.setPartialScore(gee.findElement(By.xpath("td/div[@class='game_view_incidencias_result']")).getText());
-    ge.setIsEmptyNet(gee.getText().contains("EMPTY NET") ? "true" : "false");
-
-    gamereport.addEvent(ge);
-  }
 
 }
 

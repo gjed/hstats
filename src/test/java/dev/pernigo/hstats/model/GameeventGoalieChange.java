@@ -13,7 +13,6 @@ public class GameeventGoalieChange extends GameeventModel
 {
   private String goalieInName;
   private String goalieOutName;
-  private String teamId;
 
 
   /**
@@ -60,25 +59,6 @@ public class GameeventGoalieChange extends GameeventModel
   public void setGoalieOutName(String goalieOutName)
   {
     this.goalieOutName = goalieOutName;
-  }
-
-
-  /**
-   * @return the teamId
-   */
-  // @JsonProperty(required = false, value="teamId")
-  public String getTeamId()
-  {
-    return teamId;
-  }
-
-
-  /**
-   * @param teamId the teamId to set
-   */
-  public void setTeamId(String teamId)
-  {
-    this.teamId = teamId;
   }
 
 
